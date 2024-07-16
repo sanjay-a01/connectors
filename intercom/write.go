@@ -22,15 +22,15 @@ func (c *Connector) Write(ctx context.Context, config common.WriteParams) (*comm
 	if len(config.RecordId) == 0 {
 		// writing to the entity without id means
 		// that we are extending 'List' resource and creating a new record
-		write = c.post
+		write = c.Client.Post
 	} else {
 		// only put is supported for updating 'Single' resource
-		write = c.put
+		write = c.Client.Put
 
 		url.AddPath(config.RecordId)
 	}
 
-	res, err := write(ctx, url.String(), config.RecordData)
+	res, err := write(ctx, url.String(), config.RecordData, apiVersionHeader)
 	if err != nil {
 		return nil, err
 	}

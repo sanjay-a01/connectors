@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/amp-labs/connectors"
 	"github.com/amp-labs/connectors/salesloft"
 	testUtils "github.com/amp-labs/connectors/test/utils"
 	"github.com/amp-labs/connectors/utils"
@@ -45,9 +44,8 @@ func GetSalesloftConnector(ctx context.Context, filePath string) *salesloft.Conn
 	cfg := utils.SalesloftConfigFromRegistry(registry)
 	tok := utils.SalesloftTokenFromRegistry(registry)
 
-	conn, err := connectors.Salesloft(
+	conn, err := salesloft.NewConnector(
 		salesloft.WithClient(ctx, http.DefaultClient, cfg, tok),
-		salesloft.WithModule(salesloft.DefaultModuleCRM),
 	)
 	if err != nil {
 		testUtils.Fail("error creating Salesloft connector", "error", err)

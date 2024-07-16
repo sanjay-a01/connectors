@@ -127,3 +127,9 @@ playground/
 .ssl/
 
 time-formatter/*
+
+bin/
+
+.env
+
+vendor/

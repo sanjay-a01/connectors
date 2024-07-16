@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/amp-labs/connectors/common/xquery"
 	"github.com/go-playground/validator"
-	"github.com/subchen/go-xmldom"
 )
 
 const (
@@ -23,7 +22,6 @@ const (
 var (
 	//nolint:gochecknoglobals
 	validate          = validator.New()
-	ErrNoXMLRoot      = errors.New("xml document has no root")
 	ErrNotXMLChildren = errors.New("children must be of type 'XMLData' or 'XMLString'")
 	ErrNoSelfClosing  = errors.New("selfClosing cannot be true if children are not present")
 	ErrNoParens       = errors.New("value cannot contain < or >")
@@ -31,7 +29,8 @@ var (
 
 // XMLHTTPClient is an HTTP client that can parse XML response.
 type XMLHTTPClient struct {
-	HTTPClient *HTTPClient // underlying HTTP client. Required.
+	HTTPClient         *HTTPClient        // underlying HTTP client. Required.
+	ErrorPostProcessor ErrorPostProcessor // Errors returned from CRUD methods will go via this method. Optional.
 }
 
 type XMLHTTPResponse struct {
@@ -45,15 +44,7 @@ type XMLHTTPResponse struct {
 	Headers http.Header
 
 	// Body is the unmarshalled response body in XML form. Content is the same as bodyBytes
-	Body *xmldom.Document
-}
-
-func (r XMLHTTPResponse) GetRoot() (*xmldom.Node, error) {
-	if r.Body == nil || r.Body.Root == nil {
-		return nil, ErrNoXMLRoot
-	}
-
-	return r.Body.Root, nil
+	Body *xquery.XML
 }
 
 // Get makes a GET request to the given URL and returns the response body as a XML object.
@@ -61,9 +52,9 @@ func (r XMLHTTPResponse) GetRoot() (*xmldom.Node, error) {
 // refresh the access token and retry the request. If errorHandler is nil, then the default error
 // handler is used. If not, the caller can inject their own error handling logic.
 func (j *XMLHTTPClient) Get(ctx context.Context, url string, headers ...Header) (*XMLHTTPResponse, error) {
-	res, body, err := j.HTTPClient.Get(ctx, url, addAcceptXMLHeader(headers)) //nolint:bodyclose
+	res, body, err := j.HTTPClient.Get(ctx, url, addAcceptXMLHeader(headers)...) //nolint:bodyclose
 	if err != nil {
-		return nil, err
+		return nil, j.ErrorPostProcessor.handleError(err)
 	}
 
 	return parseXMLResponse(res, body)
@@ -89,7 +80,7 @@ func parseXMLResponse(res *http.Response, body []byte) (*XMLHTTPResponse, error)
 	}
 
 	// Unmarshall the response body into XML
-	xmlBody, err := xmldom.Parse(bytes.NewReader(body))
+	xmlBody, err := xquery.NewXML(body)
 	if err != nil {
 		return nil, NewHTTPStatusError(res.StatusCode, fmt.Errorf("failed to unmarshall response body into XML: %w", err))
 	}
